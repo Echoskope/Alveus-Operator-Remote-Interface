@@ -4,6 +4,7 @@
 #include <WiFiClient.h>
 #include "arduino_secrets.h"
 
+// Modified 21AUG2023
 
 // Constants
 const char* ssid = SECRET_SSID; // Defined in arduino_secrets.h
