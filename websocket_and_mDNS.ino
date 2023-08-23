@@ -42,6 +42,12 @@ void onWebSocketEvent(uint8_t num,
       webSocket.sendTXT(num, payload);
       break;
 
+    // send message to client
+    // webSocket.sendTXT(num, "message here");
+
+    // send data to all connected clients
+    // webSocket.broadcastTXT("message here");
+
     // For everything else: do nothing
     case WStype_BIN:
     case WStype_ERROR:
