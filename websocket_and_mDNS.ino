@@ -12,6 +12,7 @@ const char* password = SECRET_PASS; // Defined in arduino_secrets.h
 
 // Globals
 WebSocketsServer webSocket = WebSocketsServer(80);
+int messageCounter = 0;
 
 // Called when receiving any WebSocket message
 void onWebSocketEvent(uint8_t num,
@@ -39,7 +40,8 @@ void onWebSocketEvent(uint8_t num,
     // Echo text message back to client
     case WStype_TEXT:
       Serial.printf("[%u] Text: %s\n", num, payload);
-      webSocket.sendTXT(num, payload);
+      //webSocket.sendTXT(num, payload);
+      webSocket.broadcastTXT(payload);
       break;
 
     // send message to client
@@ -61,6 +63,8 @@ void onWebSocketEvent(uint8_t num,
 }
 
 void setup() {
+
+  pinMode(4, INPUT);
 
   // Start Serial port
   Serial.begin(115200);
@@ -101,7 +105,19 @@ void setup() {
 }
 
 void loop() {
+  // If button is pressed, we want to send a websock message with JSON
+  // webSocket.broadcastTXT(payload);
+  // {"event":{"button0":"pressed"}}
 
+  //Serial.println(analogRead(4));
+  if (analogRead(4) < 1000) {
+    messageCounter++;
+    if (messageCounter > 5000) {
+      //webSocket.broadcastTXT("Hey! Who turned out the lights?!");
+      webSocket.broadcastTXT("{\"event\":{\"button0\":\"pressed\"}}");
+      messageCounter = 0;
+    }
+  }
   // Look for and handle WebSocket data
   webSocket.loop();
 }
