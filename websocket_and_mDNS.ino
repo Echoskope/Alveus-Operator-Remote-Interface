@@ -1,28 +1,55 @@
-#include <WiFi.h>
-#include <WebSocketsServer.h>
-#include <ESPmDNS.h>
-#include <WiFiClient.h>
-#include "arduino_secrets.h"
-#include <ArduinoJson.h>
-#include <Adafruit_DotStar.h>
-#include <SPI.h>
+/*
 
-#define NUMPIXELS 1
-#define DATAPIN 40
-#define CLOCKPIN 45
-Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
+***************************************************************************************************
 
+WebSocket and mDNS code sourced from examples in Arduino IDE and then modified for purpose.
+
+You will have to create arduino_secrets.h to store the Wifi Credentials (if using Wifi) with these two definitions:
+
+#define SECRET_SSID "WifiSSID";
+#define SECRET_PASS "WifiPassword";
+
+***************************************************************************************************
 
 
-// Modified 21AUG2023
-    /*
+*********** ToDo ***********
+- Update for FeatherS3
+  + Have to change the LED over to using the IO ports instead of the onboard LED (although the FeatherS3 does have one, but it's a different flavor of controller)
+  + FeatherS3 also does not use the DotStar LED controller
+- Add Support for the Ethernet Wing
+- Add Support for Relay Wing control
+- Need to investigate ArduinoJSON to see if there is a way to list all included keys before trying to read value
+  + Right now the code will support websocket data that doesn't follow the JSON format as long as it isn't a return character
+  + A return character from the websocket connection will cause the code to crash and the chip will reboot
+  + Ideally we would first search the deserialized JSON key's, and then based on what we find read the values and act on them so we aren't trying to read non-existant key:values
+
+
+*********** Expected JSON from the Enterprise Automation System ***********
+
     {
       "control": {
         "greenLED": "on",
         "redLED": "off",
       }
     }
-    */
+
+*/
+
+
+#include <WiFi.h>
+#include <WebSocketsServer.h>
+#include <ESPmDNS.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
+#include <Adafruit_DotStar.h>
+#include <SPI.h>
+#include "arduino_secrets.h"
+
+#define NUMPIXELS 1
+#define DATAPIN 40
+#define CLOCKPIN 45
+Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
+
 // Constants
 const char* ssid = SECRET_SSID; // Defined in arduino_secrets.h
 const char* password = SECRET_PASS; // Defined in arduino_secrets.h
@@ -84,7 +111,7 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       // strip.getPixelColor returns 32 bits of data, only which the low 24 bits are used
       // Here is the believed formatting:
       // 0000 0000 GGGG GGGG RRRR RRRR BBBB BBBB
-      // Note teh order of colors G and R and swapped (I don't know why it works this way)
+      // Note the order of colors G and R and swapped (I don't know why it works this way)
       // Each R, G or B value can be up to 255
       // We can use bit masking and shifting to play with this value!
       // Green = 16 bit offset
@@ -124,10 +151,6 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
         strip.setPixelColor(0, color);
         Serial.println("Red LED Off!");
       } 
-      //if ((strcmp(greenLED, LEDoff) == 0) && (strcmp(redLED, LEDoff) == 0)) {
-      //  strip.setPixelColor(0, 0, 0, 0);
-      //  Serial.println("LED Off!");
-      //}
       
       strip.show();
    }
@@ -196,16 +219,14 @@ void setup() {
 }
 
 void loop() {
-  // If button is pressed, we want to send a websock message with JSON
+  // If button is pressed, we want to send a websocket message with JSON
   // webSocket.broadcastTXT(payload);
   // {"event":{"button0":"pressed"}}
 
   //Serial.println(analogRead(4));
-  if (analogRead(4) < 1000) {
+  if (analogRead(4) < 1000) { //Until we get a button wired in, we're using the on-board ambient light sensor as an input for this testing.
     messageCounter++;
-    
-
-    
+     
     if (messageCounter > 5000) {
       //webSocket.broadcastTXT("Hey! Who turned out the lights?!");
       webSocket.broadcastTXT("{\"event\":{\"button0\":\"pressed\"}}");
