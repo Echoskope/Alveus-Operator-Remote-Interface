@@ -20,6 +20,9 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
   + A return character from the websocket connection will cause the code to crash and the chip will reboot
   + Ideally we would first search the deserialized JSON key's, and then based on what we find read the values and act on them so we aren't trying to read non-existant key:values
 
+********** Bugs ***********
+- If you send an empty string (maybe a CR or LF) to the websocket, the program will crash as soon as it tries to do a Serial.print() with that data. 
+
 
 *********** Expected JSON from the Enterprise Automation System ***********
 
@@ -61,7 +64,7 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 #define SCREEN_HEIGHT 128 // OLED display height, in pixels
 #define OLED_RESET -1     // can set an oled reset pin if desired
 
-//Adafruit_SH1107 display = Adafruit_SH1107(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET, 1000000, 100000);
+Adafruit_SH1107 display = Adafruit_SH1107(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET, 1000000, 100000);
 
 Adafruit_NeoPixel strip(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -75,8 +78,7 @@ int messageCounter = 0;
 
 const char* LEDon = "on";
 const char* LEDoff = "off";
-const char* jsonGreen = "greenLED";
-const char* jsonRed = "redLED";
+
 // Called when receiving any WebSocket message
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
 
@@ -99,13 +101,10 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
 
     // Echo text message back to client
     case WStype_TEXT:{
-      Serial.printf("[%u] Text: %s\n", num, payload);
-    
-    if ((strstr((char *)payload, jsonGreen) == NULL) || (strstr((char *)payload, jsonRed) == NULL)) {
-      Serial.println("greenLED or redLED not found!");
-      break;
-    }
-    
+
+    Serial.printf("[%u] Text: %s\n", num, payload);
+
+  
       StaticJsonDocument<200> doc;
       DeserializationError error = deserializeJson(doc, (char *)payload);
 
@@ -113,11 +112,8 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
    } else {
-      
-      Serial.println("Test Point -1");      
 
-      const char* greenLED = doc["control"]["greenLED"];
-      const char* redLED = doc["control"]["redLED"];
+      uint32_t color = strip.getPixelColor(0);
 
       //Serial.println(greenLED);
       //Serial.println(redLED);
@@ -142,46 +138,69 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       // To turn blue off, AND the register with 0xFFFF00
       //
       // To set values other than full on / off, we first need to turn off the color and then OR the new value
+      display.clearDisplay();
+      display.setCursor(0,0);             // Start at top-left corner
+      display.setTextSize(2);             // Draw 2X-scale text
+      display.setTextColor(SH110X_WHITE);
 
-      uint32_t color = strip.getPixelColor(0);
+      const char* redLED = doc["control"]["redLED"];
+      if (redLED){
+        if (strcmp(redLED, LEDon) == 0){   
+          color = color | (0xFF<<16);
+          strip.setPixelColor(0, color);
+          Serial.println("Red LED On!");
+          display.println("LED:");
+          display.println("Red On");
+        } 
+        if (strcmp(redLED, LEDoff) == 0){
+          color = color & 0x00FFFF;
+          strip.setPixelColor(0, color);
+          Serial.println("Red LED Off!");
+          display.println("LED:");
+          display.println("Red Off");
+        } 
+      }
+ 
+      const char* greenLED = doc["control"]["greenLED"];
+      if (greenLED){
+        if (strcmp(greenLED, LEDon) == 0){
+          color = color | (0xFF<<8);
+          strip.setPixelColor(0, color);
+          Serial.println("Green LED On!");
+          display.println("LED:");
+          display.println("Green On");
+        }
+        if (strcmp(greenLED, LEDoff) == 0){
+          color = color & 0xFF00FF;
+          strip.setPixelColor(0, color);
+          Serial.println("Green LED Off!");
+          display.println("LED:");
+          display.println("Green Off");
+        }
+      }
       
-      if (strcmp(greenLED, LEDon) == 0){
-        color = color | (0xFF<<8);
-        strip.setPixelColor(0, color);
-        Serial.println("Green LED On!");
-        //display.clearDisplay();
-        //display.setCursor(0,0);             // Start at top-left corner
-        //display.setTextSize(2);             // Draw 2X-scale text
-        //display.setTextColor(SH110X_WHITE);
-        //display.println("LED:");
-        //display.println("Green");
-        //display.display();
+      const char* blueLED = doc["control"]["blueLED"];
+      if (blueLED){
+        if (strcmp(blueLED, LEDon) == 0){
+          color = color | (0xFF);
+          strip.setPixelColor(0, color);
+          Serial.println("Blue LED On!");
+          display.println("LED:");
+          display.println("Blue On");
+        }
+        if (strcmp(blueLED, LEDoff) == 0){
+          color = color & 0xFFFF00;
+          strip.setPixelColor(0, color);
+          Serial.println("Blue LED Off!");
+          display.println("LED:");
+          display.println("Blue Off");
+        }
       }
-      if (strcmp(redLED, LEDon) == 0){
-        color = color | (0xFF<<16);
-        strip.setPixelColor(0, color);
-        Serial.println("Red LED On!");
-        //display.clearDisplay();
-        //display.setCursor(0,0);             // Start at top-left corner
-        //display.setTextSize(2);             // Draw 2X-scale text
-        //display.setTextColor(SH110X_WHITE);
-        //display.println("LED:");
-        //display.println("Red");
-        //display.display();
-      } 
-      if (strcmp(greenLED, LEDoff) == 0){
-        color = color & 0xFF00FF;
-        strip.setPixelColor(0, color);
-        Serial.println("Green LED Off!");
-      }
-      if (strcmp(redLED, LEDoff) == 0){
-        color = color & 0x00FFFF;
-        strip.setPixelColor(0, color);
-        Serial.println("Red LED Off!");
-      } 
-     strip.show(); 
+
+      display.display();
+      strip.show(); 
    }
-      //webSocket.sendTXT(num, payload);
+      //webSocket.sendTXT(num, payload);  
       webSocket.broadcastTXT(payload);
     }
       break;
@@ -206,9 +225,9 @@ void setup() {
 
   Wire.begin(SDA, SCL);
   
-  //display.begin(0x3D, true); // Address 0x3D default
-  //display.display();
-  //display.clearDisplay();
+  display.begin(0x3D, true); // Address 0x3D default
+  display.display();
+  display.clearDisplay();
   // initialize digital pin LED_BUILTIN as an output.
   //pinMode(4, INPUT);
   //pinMode(LED_BUILTIN, OUTPUT);
