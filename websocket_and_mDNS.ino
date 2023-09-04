@@ -60,6 +60,7 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 #define blueLEDpin 12
 #define LDO2enable 39
 #define button 17
+#define relay 11
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 128 // OLED display height, in pixels
 #define OLED_RESET -1     // can set an oled reset pin if desired
@@ -140,7 +141,7 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       // To set values other than full on / off, we first need to turn off the color and then OR the new value
       display.clearDisplay();
       display.setCursor(0,0);             // Start at top-left corner
-      display.setTextSize(2);             // Draw 2X-scale text
+      display.setTextSize(1);             // Draw 2X-scale text
       display.setTextColor(SH110X_WHITE);
 
       const char* redLED = doc["control"]["redLED"];
@@ -197,6 +198,26 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
         }
       }
 
+      const char* relay0 = doc["control"]["relay0"];
+      if (relay0){
+        if (strcmp(relay0, LEDon) == 0){
+          digitalWrite(relay, HIGH);
+          digitalWrite(greenLEDpin, HIGH);
+          digitalWrite(redLEDpin, LOW);
+          Serial.println("Relay On!");
+          display.println("Relay:");
+          display.println("On");
+        }
+        if (strcmp(relay0, LEDoff) == 0){
+          digitalWrite(relay, LOW);
+          digitalWrite(greenLEDpin, LOW);
+          digitalWrite(redLEDpin, HIGH);
+          Serial.println("Relay Off!");
+          display.println("Relay:");
+          display.println("Off");
+        }
+      }
+
       display.display();
       strip.show(); 
    }
@@ -236,6 +257,7 @@ void setup() {
   pinMode(blueLEDpin, OUTPUT);
   pinMode(LDO2enable, OUTPUT);
   pinMode(button, INPUT_PULLUP);
+  pinMode(relay, OUTPUT);
 
   digitalWrite(redLEDpin, HIGH);
   digitalWrite(greenLEDpin, HIGH);
