@@ -28,9 +28,12 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 
     {
       "control": {
-        "redLED": "on",
-        "greenLED": "off",
-        "blueLED": "off",
+        "redOnboardLED": "on",
+        "greenOnboardLED": "off",
+        "blueOnboardLED": "off",
+        "redButtonLED": "off",
+        "greenButtonLED": "off",
+        "blueBUttonLED": "off",
         "relay0": "off",
         "display0": "Test Display Message"
       }
@@ -141,60 +144,84 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       // To set values other than full on / off, we first need to turn off the color and then OR the new value
       display.clearDisplay();
       display.setCursor(0,0);             // Start at top-left corner
-      display.setTextSize(1);             // Draw 2X-scale text
+      display.setTextSize(2);             // Draw 2X-scale text
       display.setTextColor(SH110X_WHITE);
 
-      const char* redLED = doc["control"]["redLED"];
-      if (redLED){
-        if (strcmp(redLED, LEDon) == 0){   
+      const char* redButtonLED = doc["control"]["redButtonLED"];
+      if (redButtonLED){
+        if (strcmp(redButtonLED, LEDon) == 0){   
+          digitalWrite(redLEDpin, LOW);
+          Serial.println("Red Button LED On!");
+        } 
+        if (strcmp(redButtonLED, LEDoff) == 0){
+          digitalWrite(redLEDpin, HIGH);
+          Serial.println("Red Button LED Off!");
+        } 
+      }
+
+      const char* greenButtonLED = doc["control"]["greenButtonLED"];
+      if (greenButtonLED){
+        if (strcmp(greenButtonLED, LEDon) == 0){   
+          digitalWrite(greenLEDpin, LOW);
+          Serial.println("Green Button LED On!");
+        } 
+        if (strcmp(greenButtonLED, LEDoff) == 0){
+          digitalWrite(greenLEDpin, HIGH);
+          Serial.println("Green Button LED Off!");
+        } 
+      }
+
+      const char* blueButtonLED = doc["control"]["blueButtonLED"];
+      if (blueButtonLED){
+        if (strcmp(blueButtonLED, LEDon) == 0){   
+          digitalWrite(blueLEDpin, LOW);
+          Serial.println("Blue Button LED On!");
+        } 
+        if (strcmp(blueButtonLED, LEDoff) == 0){
+          digitalWrite(blueLEDpin, HIGH);
+          Serial.println("Blue Button LED Off!");
+        } 
+      }
+      
+      const char* redOnboardLED = doc["control"]["redOnboardLED"];
+      if (redOnboardLED){
+        if (strcmp(redOnboardLED, LEDon) == 0){   
           color = color | (0xFF<<16);
           strip.setPixelColor(0, color);
-          Serial.println("Red LED On!");
-          display.println("LED:");
-          display.println("Red On");
+          Serial.println("Red Onboard LED On!");
         } 
-        if (strcmp(redLED, LEDoff) == 0){
+        if (strcmp(redOnboardLED, LEDoff) == 0){
           color = color & 0x00FFFF;
           strip.setPixelColor(0, color);
-          Serial.println("Red LED Off!");
-          display.println("LED:");
-          display.println("Red Off");
+          Serial.println("Red Onboard LED Off!");
         } 
       }
  
-      const char* greenLED = doc["control"]["greenLED"];
-      if (greenLED){
-        if (strcmp(greenLED, LEDon) == 0){
+      const char* greenOnboardLED = doc["control"]["greenOnboardLED"];
+      if (greenOnboardLED){
+        if (strcmp(greenOnboardLED, LEDon) == 0){
           color = color | (0xFF<<8);
           strip.setPixelColor(0, color);
-          Serial.println("Green LED On!");
-          display.println("LED:");
-          display.println("Green On");
+          Serial.println("Green Onboard LED On!");
         }
-        if (strcmp(greenLED, LEDoff) == 0){
+        if (strcmp(greenOnboardLED, LEDoff) == 0){
           color = color & 0xFF00FF;
           strip.setPixelColor(0, color);
-          Serial.println("Green LED Off!");
-          display.println("LED:");
-          display.println("Green Off");
+          Serial.println("Green Onboard LED Off!");
         }
       }
       
-      const char* blueLED = doc["control"]["blueLED"];
-      if (blueLED){
-        if (strcmp(blueLED, LEDon) == 0){
+      const char* blueOnboardLED = doc["control"]["blueOnboardLED"];
+      if (blueOnboardLED){
+        if (strcmp(blueOnboardLED, LEDon) == 0){
           color = color | (0xFF);
           strip.setPixelColor(0, color);
-          Serial.println("Blue LED On!");
-          display.println("LED:");
-          display.println("Blue On");
+          Serial.println("Blue Onboard LED On!");
         }
-        if (strcmp(blueLED, LEDoff) == 0){
+        if (strcmp(blueOnboardLED, LEDoff) == 0){
           color = color & 0xFFFF00;
           strip.setPixelColor(0, color);
-          Serial.println("Blue LED Off!");
-          display.println("LED:");
-          display.println("Blue Off");
+          Serial.println("Blue Onboard LED Off!");
         }
       }
 
@@ -205,18 +232,20 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
           digitalWrite(greenLEDpin, HIGH);
           digitalWrite(redLEDpin, LOW);
           Serial.println("Relay On!");
-          display.println("Relay:");
-          display.println("On");
         }
         if (strcmp(relay0, LEDoff) == 0){
           digitalWrite(relay, LOW);
           digitalWrite(greenLEDpin, LOW);
           digitalWrite(redLEDpin, HIGH);
           Serial.println("Relay Off!");
-          display.println("Relay:");
-          display.println("Off");
         }
       }
+
+      const char* display0 = doc["control"]["display0"];
+      if (display0){
+        display.println(display0);
+      }
+
 
       display.display();
       strip.show(); 
