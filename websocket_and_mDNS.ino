@@ -63,7 +63,7 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 #define relay 11
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 128 // OLED display height, in pixels
-#define OLED_RESET -1     // can set an oled reset pin if desired
+#define OLED_RESET -1     // Can set an oled reset pin if desired
 
 Adafruit_SH1107 display = Adafruit_SH1107(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET, 1000000, 100000);
 
