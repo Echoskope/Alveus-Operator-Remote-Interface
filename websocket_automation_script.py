@@ -37,7 +37,7 @@ elif progState == "2":
 else:
     while(1):    
         result = ws.recv()
-        #print("Datatype before deserilization: "+ str(type(result)))
+        #print("Datatype before deserialization: "+ str(type(result)))
 
         if result == "999":
             break
@@ -52,7 +52,7 @@ else:
         if jsonValid:
             print("********************************")
             print("********************************")
-            print("Data after deserilization: "+str(data))
+            print("Data after deserialization: "+str(data))
             buttonEvent = data["event"]["button0"]
             #print(buttonEvent)
             if relayState:
