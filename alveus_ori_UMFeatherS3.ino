@@ -14,11 +14,7 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 
 *********** ToDo ***********
 - Add Support for the Ethernet Wing
-- Add Support for Relay Wing control
-- Need to investigate ArduinoJSON to see if there is a way to list all included keys before trying to read value
-  + Right now the code will support websocket data that doesn't follow the JSON format as long as it isn't a return character
-  + A return character from the websocket connection will cause the code to crash and the chip will reboot
-  + Ideally we would first search the deserialized JSON key's, and then based on what we find read the values and act on them so we aren't trying to read non-existant key:values
+
 
 ********** Bugs ***********
 - If you send an empty string (maybe a CR or LF) to the websocket, the program will crash as soon as it tries to do a Serial.print() with that data. 
