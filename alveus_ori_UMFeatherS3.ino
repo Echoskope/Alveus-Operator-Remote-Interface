@@ -87,14 +87,14 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
 
     // Client has disconnected
     case WStype_DISCONNECTED:
-      Serial.printf("[%u] Disconnected!\n", num);
+      Serial.printf("[%u] Websocket Disconnected!\n", num);
       break;
 
     // New client has connected
     case WStype_CONNECTED:
       {
         IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connection from ", num);
+        Serial.printf("[%u] Websocket Connection from ", num);
         Serial.println(ip.toString());
       }
       break;
@@ -102,7 +102,7 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
     // Echo text message back to client
     case WStype_TEXT:{
 
-    Serial.printf("[%u] Text: %s\n", num, payload);
+    Serial.printf("\n\n[%u] Text from Websocket: %s\n", num, payload);
 
   
       StaticJsonDocument<200> doc;
