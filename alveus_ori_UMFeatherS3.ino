@@ -338,12 +338,33 @@ void loop() {
   //if (analogRead(4) < 1000) { //Until we get a button wired in, we're using the on-board ambient light sensor as an input for this testing.
   //  messageCounter++;
      
-    if (!digitalRead(button)) {
-      delay(250);
-      //webSocket.broadcastTXT("Hey! Who turned out the lights?!");
-      webSocket.broadcastTXT("{\"event\":{\"button0\":\"pressed\"}}");
-      //messageCounter = 0;
+  if (!digitalRead(button)) {
+    
+    StaticJsonDocument<200> senddoc;
+    delay(250);
+    //webSocket.broadcastTXT("Hey! Who turned out the lights?!");
+    senddoc["event"]["button0"] = "pressed";
+    serializeJson(senddoc, Serial);
+    String json_string;
+    serializeJson(senddoc, json_string);
+    webSocket.broadcastTXT(json_string);
+    //webSocket.broadcastTXT("{\"event\":{\"button0\":\"pressed\"}}");
+    //messageCounter = 0;
+  }
+  
+  if ( WiFi.status() != WL_CONNECTED){
+    Serial.println("Lost Wifi");
+    display.println("Lost Wifi");
+    display.display();
+    WiFi.begin(ssid, password);
+    while ( WiFi.status() != WL_CONNECTED ) {
+      delay(500);
+      Serial.print(".");
     }
+    Serial.println("Wifi Recon");
+    display.println("Wifi Recon");
+    display.display();
+  }
   // Look for and handle WebSocket data
   webSocket.loop();
   
