@@ -13,7 +13,11 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
 
 
 *********** ToDo ***********
-- Add Support for the Ethernet Wing
+- Add Support for the Ethernet Wing (This is a lot more difficult than expected and probably won't happen)
+- Add support for the music wing so a JSON command received through websocket can trigger a file playback
+  - This may be more difficult as we don't want it blocking while playing the file and the current library doesn't allow interrupt based playback on ESP32
+  - It might be worth having a separate Feather (like the RP2040 Feather) to handle the music playback, with basic digital IO interface back to the FeatherS3
+- Add support for a magnetic door contact sensor
 
 
 ********** Bugs ***********
@@ -29,55 +33,69 @@ You will have to create arduino_secrets.h to store the Wifi Credentials (if usin
         "blueOnboardLED": "off",
         "redButtonLED": "off",
         "greenButtonLED": "off",
-        "blueBUttonLED": "off",
+        "blueButtonLED": "off",
         "relay0": "off",
         "display0": "Test Display Message"
       }
     }
 
+- XXXOnboardLED is the NeoPixel that is on the FeatherS3 itself
+- XXXButtonLED is the LED ring of the external push button
+- relay0 is the relay wing
+- display0 is the OLED display (128x128) connected via I2C STEMMA QT connector
+
 */
 
 
-#include <WiFi.h>
-#include <WebSocketsServer.h>
-#include <ESPmDNS.h>
-#include <WiFiClient.h>
-#include <ArduinoJson.h>
-#include <Adafruit_NeoPixel.h>
-#include <SPI.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SH110X.h>
+#include <WiFi.h> // Base wifi
+#include <WebSocketsServer.h> // For all things websocket
+#include <ESPmDNS.h> // For mDNS service to make finding the FeatherM3 on the network easier
+#include <WiFiClient.h> // To connect to the Wifi network
+#include <ArduinoJson.h> // For handling all things JSON
+#include <Adafruit_NeoPixel.h> // For the on-board NeoPixel
+#include <SPI.h> // For Ethernet Wing (not currently used)
+#include <Wire.h> // For the display
+#include <Adafruit_GFX.h> // For the display
+#include <Adafruit_SH110X.h> //For the Display
 #include "arduino_secrets.h"
 
+/* For the On-Board NeoPixel and Library*/
 #define NUMPIXELS 1
 #define PIN 40
+
+/* For the STEMMA QT connector the display uses */
 #define SDA 8
 #define SCL 9
+
+/* IO Pins connected to the various external devices */
 #define redLEDpin 18
 #define greenLEDpin 14
 #define blueLEDpin 12
 #define LDO2enable 39
 #define button 17
 #define relay 11
+
+/* OLED Screen */
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
 #define SCREEN_HEIGHT 128 // OLED display height, in pixels
 #define OLED_RESET -1     // Can set an oled reset pin if desired
+
+// Constants
+const char* ssid = SECRET_SSID; // Defined in arduino_secrets.h
+const char* password = SECRET_PASS; // Defined in arduino_secrets.h
+const char* LEDon = "on";
+const char* LEDoff = "off";
+
+// Globals
+WebSocketsServer webSocket = WebSocketsServer(80);
 
 Adafruit_SH1107 display = Adafruit_SH1107(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET, 1000000, 100000);
 
 Adafruit_NeoPixel strip(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
-// Constants
-const char* ssid = SECRET_SSID; // Defined in arduino_secrets.h
-const char* password = SECRET_PASS; // Defined in arduino_secrets.h
-
-// Globals
-WebSocketsServer webSocket = WebSocketsServer(80);
-int messageCounter = 0;
-
-const char* LEDon = "on";
-const char* LEDoff = "off";
+/**********************/
+/* Start of functions */
+/**********************/
 
 // Called when receiving any WebSocket message
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
@@ -105,18 +123,16 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
     Serial.printf("\n\n[%u] Text from Websocket: %s\n", num, payload);
 
   
-      StaticJsonDocument<200> doc;
-      DeserializationError error = deserializeJson(doc, (char *)payload);
+    StaticJsonDocument<200> doc; // Set aside a block of memory for the object
+    DeserializationError error = deserializeJson(doc, (char *)payload); // Check and see if we got valid JSON from the websocket data
 
+    /* If we get back invalid JSON, we want to skip trying to parse it, otherwise let's see if it has something we want */
    if (error) {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
    } else {
 
-      uint32_t color = strip.getPixelColor(0);
-
-      //Serial.println(greenLED);
-      //Serial.println(redLED);
+      uint32_t color = strip.getPixelColor(0); // We need to get the NeoPixel color so we don't overwrite an existing color if we only get 1 or 2 color keys back in the JSON file
 
       // We need to pull the current LED color state and then add or remove color
       // strip.getPixelColor returns 32 bits of data, only which the low 24 bits are used
@@ -138,57 +154,28 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
       // To turn blue off, AND the register with 0xFFFF00
       //
       // To set values other than full on / off, we first need to turn off the color and then OR the new value
+      
+      /* Before we do any further parsing, let's clear the display and put the cursor in the upper left corner in case we need to show something on the screen*/
       display.clearDisplay();
       display.setCursor(0,0);             // Start at top-left corner
       display.setTextSize(2);             // Draw 2X-scale text
       display.setTextColor(SH110X_WHITE);
 
-      const char* redButtonLED = doc["control"]["redButtonLED"];
-      if (redButtonLED){
-        if (strcmp(redButtonLED, LEDon) == 0){   
-          digitalWrite(redLEDpin, LOW);
-          Serial.println("Red Button LED On!");
-        } 
-        if (strcmp(redButtonLED, LEDoff) == 0){
-          digitalWrite(redLEDpin, HIGH);
-          Serial.println("Red Button LED Off!");
-        } 
-      }
-
-      const char* greenButtonLED = doc["control"]["greenButtonLED"];
-      if (greenButtonLED){
-        if (strcmp(greenButtonLED, LEDon) == 0){   
-          digitalWrite(greenLEDpin, LOW);
-          Serial.println("Green Button LED On!");
-        } 
-        if (strcmp(greenButtonLED, LEDoff) == 0){
-          digitalWrite(greenLEDpin, HIGH);
-          Serial.println("Green Button LED Off!");
-        } 
-      }
-
-      const char* blueButtonLED = doc["control"]["blueButtonLED"];
-      if (blueButtonLED){
-        if (strcmp(blueButtonLED, LEDon) == 0){   
-          digitalWrite(blueLEDpin, LOW);
-          Serial.println("Blue Button LED On!");
-        } 
-        if (strcmp(blueButtonLED, LEDoff) == 0){
-          digitalWrite(blueLEDpin, HIGH);
-          Serial.println("Blue Button LED Off!");
-        } 
-      }
       
-      const char* redOnboardLED = doc["control"]["redOnboardLED"];
-      if (redOnboardLED){
-        if (strcmp(redOnboardLED, LEDon) == 0){   
-          color = color | (0xFF<<16);
-          strip.setPixelColor(0, color);
+      /* Up to this point we still don't know what's in the JSON, only that the formatting is valid. */
+      /* We will attempt to read for our known Key values, and then check to see if we get something good back or just NULL */
+      /* If we get a NULL, then we skip this key, otherwise we process it. */
+      
+      const char* redOnboardLED = doc["control"]["redOnboardLED"]; // Read a defined key value
+      if (redOnboardLED){ // Test to see if it's NULL or has a value
+        if (strcmp(redOnboardLED, LEDon) == 0){ // Check to see if the value is "on"
+          color = color | (0xFF<<16); // We found "on" so let's set the color via bit masking
+          strip.setPixelColor(0, color); // Write the new color to the NeoPixel
           Serial.println("Red Onboard LED On!");
         } 
-        if (strcmp(redOnboardLED, LEDoff) == 0){
-          color = color & 0x00FFFF;
-          strip.setPixelColor(0, color);
+        if (strcmp(redOnboardLED, LEDoff) == 0){ // Check to see if the value is "off"
+          color = color & 0x00FFFF; // We found "off" so we need to remove the bits via bit masking
+          strip.setPixelColor(0, color); // Write the new color to the NeoPixel
           Serial.println("Red Onboard LED Off!");
         } 
       }
@@ -221,9 +208,47 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
         }
       }
 
+      /* For the push button LED ring, we do the same thing, but we have to manipulate the IO pins to turn colors on and off this time. */
+      const char* redButtonLED = doc["control"]["redButtonLED"];
+      if (redButtonLED){
+        if (strcmp(redButtonLED, LEDon) == 0){   
+          digitalWrite(redLEDpin, LOW); // The colors are Active Low
+          Serial.println("Red Button LED On!");
+        } 
+        if (strcmp(redButtonLED, LEDoff) == 0){
+          digitalWrite(redLEDpin, HIGH);
+          Serial.println("Red Button LED Off!");
+        } 
+      }
+
+      const char* greenButtonLED = doc["control"]["greenButtonLED"];
+      if (greenButtonLED){
+        if (strcmp(greenButtonLED, LEDon) == 0){   
+          digitalWrite(greenLEDpin, LOW);
+          Serial.println("Green Button LED On!");
+        } 
+        if (strcmp(greenButtonLED, LEDoff) == 0){
+          digitalWrite(greenLEDpin, HIGH);
+          Serial.println("Green Button LED Off!");
+        } 
+      }
+
+      const char* blueButtonLED = doc["control"]["blueButtonLED"];
+      if (blueButtonLED){
+        if (strcmp(blueButtonLED, LEDon) == 0){   
+          digitalWrite(blueLEDpin, LOW);
+          Serial.println("Blue Button LED On!");
+        } 
+        if (strcmp(blueButtonLED, LEDoff) == 0){
+          digitalWrite(blueLEDpin, HIGH);
+          Serial.println("Blue Button LED Off!");
+        } 
+      }
+
+      /* Now to check and see if there was a relay command. */
       const char* relay0 = doc["control"]["relay0"];
       if (relay0){
-        if (strcmp(relay0, LEDon) == 0){
+        if (strcmp(relay0, LEDon) == 0){ // LEDon contains the "on" text only, so it's only being used for comparison here.
           digitalWrite(relay, HIGH);
           digitalWrite(greenLEDpin, HIGH);
           digitalWrite(redLEDpin, LOW);
@@ -237,18 +262,19 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
         }
       }
 
+      /* Time to see if there is a key value pair for our display */
       const char* display0 = doc["control"]["display0"];
       if (display0){
-        display.println(display0);
+        display.println(display0); // Put the found information in the buffer, we have to call display.display() to actually show it on screen.
       }
 
 
-      display.display();
-      strip.show(); 
-   }
-      //webSocket.sendTXT(num, payload);  
-      webSocket.broadcastTXT(payload);
+      display.display(); // Write the buffer to the display
+      strip.show(); // Push the new LED color to the NeoPixel
     }
+      //webSocket.sendTXT(num, payload);  
+      webSocket.broadcastTXT(payload); // We echo back the JSON we received
+  }
       break;
 
 
@@ -274,9 +300,8 @@ void setup() {
   display.begin(0x3D, true); // Address 0x3D default
   display.display();
   display.clearDisplay();
+  
   // initialize digital pin LED_BUILTIN as an output.
-  //pinMode(4, INPUT);
-  //pinMode(LED_BUILTIN, OUTPUT);
   pinMode(redLEDpin, OUTPUT);
   pinMode(greenLEDpin, OUTPUT);
   pinMode(blueLEDpin, OUTPUT);
@@ -336,7 +361,7 @@ void loop() {
 
   //Serial.println(analogRead(4));
   //if (analogRead(4) < 1000) { //Until we get a button wired in, we're using the on-board ambient light sensor as an input for this testing.
-  //  messageCounter++;
+
      
   if (!digitalRead(button)) {
     
@@ -349,7 +374,6 @@ void loop() {
     serializeJson(senddoc, json_string);
     webSocket.broadcastTXT(json_string);
     //webSocket.broadcastTXT("{\"event\":{\"button0\":\"pressed\"}}");
-    //messageCounter = 0;
   }
   
   if ( WiFi.status() != WL_CONNECTED){
